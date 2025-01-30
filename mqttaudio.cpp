@@ -36,6 +36,8 @@ int frequency = 44100;
 
 std::string server = "localhost";
 unsigned int port = 1883;
+std::string username = "";
+std::string password = "";
 std::string topic = "";
 std::string alsaDevice = "";
 std::string uriprefix = "";
@@ -334,6 +336,22 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
         }
         break;
 
+    case 'n':
+        if (arg != NULL)
+        {
+            username = arg;
+            printf("Setting MQTT username to '%s'\n", username);
+        }
+        break;
+
+    case 'c':
+        if (arg != NULL)
+        {
+            password = arg;
+            printf("Setting MQTT password to '%s'\n", password);
+        }
+        break;
+
     case 'u':
         if (arg != NULL && *arg != '\0')
         {
@@ -349,6 +367,7 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
             preloads.push_back(arg);
         }
         break;
+
     case 'd':
         if (arg != NULL && *arg != '\0')
         {
@@ -411,6 +430,8 @@ int main(int argc, char **argv)
         {
             {"server", 's', "server", 0, "The MQTT server to connect to (default localhost)"},
             {"port", 'p', "port", 0, "The MQTT server port (default 1883)"},
+            {"username", 'n', 0, 0, "The MQTT server username"},
+            {"password", 'c', 0, 0, "The MQTT server password"},
             {"topic", 't', "topic", 0, "The MQTT server topic to subscribe to (wildcards allowed)"},
             {"alsa-device", 'd', "pcm", 0, "The ALSA PCM device to use (setting this option overrides the SDL_AUDIODRIVER and AUDIODEV environment variables)"},
             {"list-devices", 'l', 0, 0, "Lists available ALSA PCM devices for the 'd' switch."},
@@ -462,6 +483,11 @@ int main(int argc, char **argv)
     {
         mosquitto_connect_callback_set(mosq, connect_callback);
         mosquitto_message_callback_set(mosq, message_callback);
+
+        if (username.empty() && password.empty())
+        {
+            mosquitto_username_pw_set(mosq, username.c_str(), password.c_str())
+        }
 
         printf("Connecting to server %s\n", server.c_str());
         rc = mosquitto_connect(mosq, server.c_str(), port, 60);
