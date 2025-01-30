@@ -486,7 +486,7 @@ int main(int argc, char **argv)
 
         if (username.empty() && password.empty())
         {
-            mosquitto_username_pw_set(mosq, username.c_str(), password.c_str())
+            mosquitto_username_pw_set(mosq, username.c_str(), password.c_str());
         }
 
         printf("Connecting to server %s\n", server.c_str());
