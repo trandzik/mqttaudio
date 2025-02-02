@@ -21,16 +21,17 @@ To find ALSA devices:  mqttaudio --list-devices
 
 To control, send a valid JSON message to the topic specified:
 
-    {"command": "play", "message": {"file": "http://example.com/audio.wav", "loop": true, "volume": 0.75, "exclusive": false, "maxPlayLength": 60000}}
+    {"command": "play", "message": {"file": "http://example.com/audio.wav", "channel": -1, "loop": true, "volume": 0.75, "exclusive": false, "maxPlayLength": 60000}}
 
-    {"command": "stopall"}
+    {"command": "stop", "message": {"channel": -1}}
 
-    {"command": "fadeout", "message": {"time": 10000}}
+    {"command": "fadeout", "message": {"time": 10000, "channel": 1}}
 
     {"command": "precache", "message": {"file": "http://example.com/loadme.wav"}}
 
 File paths can be local or remote.
 All times in milliseconds.
+Playing to channel -1 will play to next available channel. Stopping channel -1 will stop all channels.
 
 Supported formats: WAV, OGG.  MP3 and MOD may work but are untested
 
