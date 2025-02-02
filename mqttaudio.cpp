@@ -78,14 +78,14 @@ void connect_callback(struct mosquitto *mosq, void *obj, int result)
     exit(EX_PROTOCOL);
 }
 
-void stopAll(bool alsoStopBgm)
+void stop(int channel)
 {
     if (verbose)
     {
-        printf("Stopping all sounds, %s background music.\n", alsoStopBgm ? "including" : "excluding");
+        printf("Stopping sounds in channel %d.\n", channel);
     }
 
-    Mix_HaltChannel(-1);
+    Mix_HaltChannel(channel);
 }
 
 Sample *precacheSample(const char *file)
@@ -102,7 +102,7 @@ Sample *precacheSample(const char *file)
     return manager.GetSample(filename.c_str());
 }
 
-void playSample(const char *file, bool loop, float volume, bool exclusive, bool isBgm, int maxPlayLength)
+void playSample(const char *file, bool loop, float volume, bool exclusive, int channel, int maxPlayLength)
 {
     if (volume < 0.0f)
     {
@@ -115,7 +115,7 @@ void playSample(const char *file, bool loop, float volume, bool exclusive, bool 
 
     if (verbose)
     {
-        printf("Playing sound %s, %s %s, at volume %d%%%s\n", file, loop ? "looping" : "once", maxPlayLength == -1 ? "forever" : "for a limited time", (int)(volume * 100.0f), isBgm ? "as background music." : ".");
+        printf("Playing sound %s to channel %d, %s %s, at volume %d\n", file, channel, loop ? "looping" : "once", maxPlayLength == -1 ? "forever" : "for a limited time", (int)(volume * 100.0f));
         if (maxPlayLength != -1)
         {
             printf("\tMax play length is %d ms.\n", maxPlayLength);
@@ -124,15 +124,15 @@ void playSample(const char *file, bool loop, float volume, bool exclusive, bool 
 
     if (exclusive)
     {
-        stopAll(isBgm);
+        stop(-1);
     }
 
     Sample *sample = precacheSample(file);
     if (sample != NULL)
     {
-        int channel = Mix_PlayChannelTimed(-1, sample->chunk, loop ? -1 : 0, maxPlayLength);
+        int outChannel = Mix_PlayChannelTimed(channel, sample->chunk, loop ? -1 : 0, maxPlayLength);
         int mixVolume = (int)(((float)MIX_MAX_VOLUME) * volume);
-        Mix_Volume(channel, mixVolume);
+        Mix_Volume(outChannel, mixVolume);
     }
     else
     {
@@ -155,7 +155,7 @@ bool processCommand(Document &d)
     }
 
     const char *command = d["command"].GetString();
-    if (0 == strcasecmp(command, "soundPlay") || 0 == strcasecmp(command, "play"))
+    if (0 == strcasecmp(command, "play"))
     {
         // Check to make sure we have a valid message first.
         if (!d.HasMember("message") || !d["message"].IsObject())
@@ -175,7 +175,7 @@ bool processCommand(Document &d)
         bool loop = false;
         float volume = 1.0f;
         bool exclusive = false;
-        bool bgm = false;
+        int channel = -1;
         int maxPlayLength = -1;
 
         // And then update settings based on elements of the message.
@@ -194,9 +194,9 @@ bool processCommand(Document &d)
             exclusive = d["message"]["exclusive"].GetBool();
         }
 
-        if (d["message"].HasMember("bgm") && d["message"]["bgm"].IsBool())
+        if (d["message"].HasMember("channel") && d["message"]["channel"].IsInt())
         {
-            bgm = d["message"]["bgm"].GetBool();
+            channel = d["message"]["channel"].GetInt();
         }
 
         if (d["message"].HasMember("maxPlayLength") && d["message"]["maxPlayLength"].IsInt())
@@ -204,28 +204,41 @@ bool processCommand(Document &d)
             maxPlayLength = d["message"]["maxPlayLength"].GetInt();
         }
 
-        playSample(file, loop, volume, exclusive, bgm, maxPlayLength);
+        playSample(file, loop, volume, exclusive, channel, maxPlayLength);
         return true;
     }
-    else if (0 == strcasecmp(command, "soundStopAll") || 0 == strcasecmp(command, "stopall"))
+    else if (0 == strcasecmp(command, "stop"))
     {
-        stopAll(true);
+        int channel = -1;
+        if (d["message"].HasMember("channel") && d["message"]["channel"].IsInt())
+        {
+            channel = d["message"]["channel"].GetInt();
+        }
+
+        stop(channel);
         return true;
     }
-    else if (0 == strcasecmp(command, "soundFadeOut") || 0 == strcasecmp(command, "fadeout"))
+    else if (0 == strcasecmp(command, "fadeout"))
     {
         if (d["message"].HasMember("time"))
         {
             int time = d["message"]["time"].GetInt();
+
+            int channel = -1;
+            if (d["message"].HasMember("channel") && d["message"]["channel"].IsInt())
+            {
+                channel = d["message"]["channel"].GetInt();
+            }
+
             if (verbose)
             {
-                printf("Fading out all channels for %d milliseconds.\n", time);
+                printf("Fading out channel %d for %d milliseconds.\n", channel, time);
             }
-            Mix_FadeOutChannel(-1, time);
+            Mix_FadeOutChannel(channel, time);
         }
         return true;
     }
-    else if (0 == strcasecmp(command, "soundPrecache") || 0 == strcasecmp(command, "precache"))
+    else if (0 == strcasecmp(command, "precache"))
     {
         if (!d.HasMember("message") || !d["message"].IsObject())
         {
